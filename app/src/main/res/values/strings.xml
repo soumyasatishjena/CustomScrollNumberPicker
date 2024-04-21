@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">CustomScrollNumberPicker</string>
+
+
+    <string name="str_feet">Feet</string>
+    <string name="str_inches">Inches</string>
+    <string name="Submit">Submit</string>
+    <string name="text_selected">Selected</string>
+</resources>
