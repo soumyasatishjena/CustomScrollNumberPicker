@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
@@ -19,90 +20,78 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.soumya.customscrollnumberpicker.Utils.OFF_SET_DEFAULT
 import com.soumya.customscrollnumberpicker.Utils.OFF_SET_INITIAL
+import com.soumya.customscrollnumberpicker.Utils.dip2px
 
 class CustomNumberPickerScrollView(
     context: Context?,
     attrs: AttributeSet?
 ) : ScrollView(context, attrs) {
 
-    private var context: Context? = null
-    private var views: LinearLayout? = null
-
-    var offset = Utils.OFF_SET_DEFAULT
-    private var displayItemCount = OFF_SET_INITIAL
-    private var selectedIndex = Utils.OFF_SET_DEFAULT
-
     private var onScrollViewListener: OnScrollViewListener? = null
     private var scrollerTask: Runnable? = null
-    private var scrollDirection = -1
-
-    private var items: MutableList<String>? = null
-
-    private val delay : Long = 50L
-    private var initialY = OFF_SET_INITIAL
-    private var itemHeight = OFF_SET_INITIAL
-
-    private var viewWidth = OFF_SET_INITIAL
-    private var selectedAreaBorder: IntArray? = null
-    private var paint: Paint? = null
+    val properties = CustomNumberPickerProperties()
 
     init {
-        this.context = context
+        properties.context = context
         init()
     }
 
     private fun init() {
-        views =  LinearLayout(context).apply {
+        properties.views = LinearLayout(properties.context).apply {
             orientation = LinearLayout.VERTICAL
         }
         this.apply {
             isVerticalScrollBarEnabled = false
-            addView(views)
+            addView(properties.views)
         }
 
         scrollerTask = Runnable {
             val newY = scrollY
-            if (initialY - newY == OFF_SET_INITIAL) {
-                val remainder = initialY % itemHeight
-                val divided = initialY / itemHeight
-                if (remainder == OFF_SET_INITIAL) {
-                    selectedIndex = divided + offset
-                    onSelectedCallBack()
-                } else {
-                    if (remainder > itemHeight / 2) {
-                        post {
-                            smoothScrollTo(
-                                OFF_SET_INITIAL,
-                                initialY - remainder + itemHeight
-                            )
-                            selectedIndex = divided + offset + 1
-                            onSelectedCallBack()
-                        }
+            properties.let {
+                val height = it.itemHeight
+                val initialY = it.initialY
+                if (initialY - newY == OFF_SET_INITIAL) {
+                    val remainder = initialY % height
+                    val divided = initialY / height
+                    if (remainder == OFF_SET_INITIAL) {
+                        it.selectedIndex = divided + it.offset
+                        onSelectedCallBack()
                     } else {
-                        post {
-                            smoothScrollTo(OFF_SET_INITIAL, initialY - remainder)
-                            selectedIndex = divided + offset
-                            onSelectedCallBack()
+                        if (remainder > height / 2) {
+                            post {
+                                smoothScrollTo(
+                                    OFF_SET_INITIAL,
+                                    initialY - remainder + height
+                                )
+                                it.selectedIndex = divided + it.offset + 1
+                                onSelectedCallBack()
+                            }
+                        } else {
+                            post {
+                                smoothScrollTo(OFF_SET_INITIAL, initialY - remainder)
+                                it.selectedIndex = divided + it.offset
+                                onSelectedCallBack()
+                            }
                         }
                     }
+                } else {
+                    it.initialY = scrollY
+                    postDelayed(scrollerTask, properties.delay)
                 }
-            } else {
-                initialY = scrollY
-                postDelayed(scrollerTask, delay)
             }
         }
     }
 
     private fun initData() {
-        displayItemCount = offset * 2 + 1
-        for (item in items!!) {
-            views?.addView(createView(item))
+        properties.displayItemCount = properties.offset * 2 + 1
+        for (item in properties.items!!) {
+            properties.views?.addView(createView(item))
         }
         refreshItemView(OFF_SET_INITIAL)
     }
 
     private fun createView(item: String): TextView {
-        val textView = TextView(context).apply {
+        val textView = TextView(properties.context).apply {
             layoutParams = LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -111,25 +100,27 @@ class CustomNumberPickerScrollView(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             text = item
             gravity = Gravity.CENTER
-            setPadding(
-                Utils.dip2px(this.context!!, 19f), Utils.dip2px(this.context!!, 19f),
-                Utils.dip2px(this.context!!, 19f), Utils.dip2px(this.context!!, 19f)
-            )
+            properties.context?.let {
+                setPadding(
+                    dip2px(it, 19f), dip2px(it, 19f),
+                    dip2px(it, 19f), dip2px(it, 19f)
+                )
+            }
         }
 
-        if (OFF_SET_INITIAL == itemHeight) {
-            itemHeight = Utils.getViewMeasuredHeight(textView)
-            views?.setLayoutParams(
+        if (OFF_SET_INITIAL == properties.itemHeight) {
+            properties.itemHeight = Utils.getViewMeasuredHeight(textView)
+            properties.views?.setLayoutParams(
                 LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    itemHeight * displayItemCount
+                    properties.itemHeight * properties.displayItemCount
                 )
             )
             val linearLayoutParam = this.layoutParams as LinearLayout.LayoutParams
             setLayoutParams(
                 LinearLayout.LayoutParams(
                     linearLayoutParam.width,
-                    itemHeight * displayItemCount
+                    properties.itemHeight * properties.displayItemCount
                 )
             )
         }
@@ -137,33 +128,37 @@ class CustomNumberPickerScrollView(
     }
 
     private fun refreshItemView(y: Int) {
-        var position = y / itemHeight + offset
-        val remainder = y % itemHeight
-        val divided = y / itemHeight
+        var position = y / properties.itemHeight + properties.offset
+        val remainder = y % properties.itemHeight
+        val divided = y / properties.itemHeight
         if (remainder == OFF_SET_INITIAL) {
-            position = divided + offset
+            position = divided + properties.offset
         } else {
-            if (remainder > itemHeight / 2) {
-                position = divided + offset + 1
+            if (remainder > properties.itemHeight / 2) {
+                position = divided + properties.offset + 1
             }
         }
-        val childSize = views?.childCount
+        val childSize = properties.views?.childCount
         for (i in OFF_SET_INITIAL until childSize!!) {
-            val itemTextView = views?.getChildAt(i) as TextView
+            val itemTextView = properties.views?.getChildAt(i) as TextView
             if (position == i) {
                 itemTextView.apply {
-                    setTextColor( ContextCompat.getColor(
-                        context!!,
-                        R.color.scroll_picker_selected_color
-                    ))
+                    setTextColor(
+                        ContextCompat.getColor(
+                            properties.context!!,
+                            R.color.scroll_picker_selected_color
+                        )
+                    )
                     setTypeface(null, Typeface.BOLD)
                 }
             } else {
                 itemTextView.apply {
-                    setTextColor( ContextCompat.getColor(
-                        context!!,
-                        R.color.scroll_picker_unselected_color
-                    ))
+                    setTextColor(
+                        ContextCompat.getColor(
+                            properties.context!!,
+                            R.color.scroll_picker_unselected_color
+                        )
+                    )
                     setTypeface(null, Typeface.NORMAL)
                 }
             }
@@ -171,29 +166,35 @@ class CustomNumberPickerScrollView(
     }
 
     override fun setBackground(background: Drawable?) {
-        if (viewWidth == OFF_SET_INITIAL) {
-            viewWidth = Utils.getScreenWidth((context as Activity?))
+        if (properties.viewWidth == OFF_SET_INITIAL) {
+            properties.viewWidth = Utils.getScreenWidth((properties.context as Activity?))
         }
-        if (paint == null) {
-            paint = Paint().apply {
+        if (properties.paint == null) {
+            properties.paint = Paint().apply {
                 color = ContextCompat.getColor(
-                    context!!,
+                    properties.context!!,
                     R.color.scroll_picker_unselected_color
                 )
-                strokeWidth = Utils.dip2px(context!!, 2f).toFloat()
+                strokeWidth = dip2px(properties.context!!, 2f).toFloat()
             }
         }
-        val background = object : Drawable() {
+        val pickerBackground = object : Drawable() {
             override fun draw(canvas: Canvas) {
-                paint?.let {
+                properties.paint?.let {
                     canvas.drawLine(
-                        viewWidth * (1 / 6f), obtainSelectedAreaBorder()[OFF_SET_INITIAL].toFloat(),
-                        viewWidth * 5 / 6f, obtainSelectedAreaBorder()[OFF_SET_INITIAL].toFloat(), it
+                        properties.viewWidth * (1 / 6f),
+                        obtainSelectedAreaBorder()[OFF_SET_INITIAL].toFloat(),
+                        properties.viewWidth * 5 / 6f,
+                        obtainSelectedAreaBorder()[OFF_SET_INITIAL].toFloat(),
+                        it
                     )
 
                     canvas.drawLine(
-                        viewWidth * (1 / 6f), obtainSelectedAreaBorder()[OFF_SET_DEFAULT].toFloat(),
-                        viewWidth * 5 / 6f, obtainSelectedAreaBorder()[OFF_SET_DEFAULT].toFloat(), it
+                        properties.viewWidth * (1 / 6f),
+                        obtainSelectedAreaBorder()[OFF_SET_DEFAULT].toFloat(),
+                        properties.viewWidth * 5 / 6f,
+                        obtainSelectedAreaBorder()[OFF_SET_DEFAULT].toFloat(),
+                        it
                     )
                 }
 
@@ -207,26 +208,32 @@ class CustomNumberPickerScrollView(
                 //do nothing
             }
 
-            @SuppressLint("WrongConstant")
-            override fun getOpacity(): Int {
-                return OFF_SET_INITIAL
+
+           @Deprecated("Deprecated in Java",
+               ReplaceWith("PixelFormat.UNKNOWN", "android.graphics.PixelFormat")
+           )
+           override fun getOpacity(): Int {
+                return PixelFormat.UNKNOWN
             }
         }
-        super.setBackground(background)
+        super.setBackground(pickerBackground)
     }
 
     private fun obtainSelectedAreaBorder(): IntArray {
-        if (selectedAreaBorder == null) {
-            selectedAreaBorder = IntArray(2)
-            selectedAreaBorder!![OFF_SET_INITIAL] = itemHeight * offset
-            selectedAreaBorder!![OFF_SET_DEFAULT] = itemHeight * (offset + OFF_SET_DEFAULT)
+        properties.let {
+            if (it.selectedAreaBorder == null) {
+                it.selectedAreaBorder = IntArray(2)
+                it.selectedAreaBorder!![OFF_SET_INITIAL] = it.itemHeight * it.offset
+                it.selectedAreaBorder!![OFF_SET_DEFAULT] =
+                    it.itemHeight * (it.offset + OFF_SET_DEFAULT)
+            }
         }
-        return selectedAreaBorder!!
+        return properties.selectedAreaBorder!!
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
         super.onSizeChanged(w, h, oldW, oldH)
-        viewWidth = w
+        properties.viewWidth = w
         setBackground(null)
     }
 
@@ -235,8 +242,8 @@ class CustomNumberPickerScrollView(
         if (ev.action == MotionEvent.ACTION_UP ||
             ev.action == MotionEvent.ACTION_DOWN
         ) {
-            initialY = scrollY
-            postDelayed(scrollerTask, delay)
+            properties.initialY = scrollY
+            postDelayed(scrollerTask, properties.delay)
         }
         return super.onTouchEvent(ev)
     }
@@ -248,36 +255,38 @@ class CustomNumberPickerScrollView(
     override fun onScrollChanged(l: Int, t: Int, oldL: Int, oldT: Int) {
         super.onScrollChanged(l, t, oldL, oldT)
         refreshItemView(t)
-        scrollDirection =
+        properties.scrollDirection =
             if (t > oldT) Utils.SCROLL_DIRECTION_DOWN else Utils.SCROLL_DIRECTION_UP
     }
 
-    private fun onSelectedCallBack() {
-        if (onScrollViewListener != null) {
-            onScrollViewListener!!.onSelected(selectedIndex, items!![selectedIndex])
+    private fun onSelectedCallBack() =
+        onScrollViewListener?.let {
+            properties.let {
+                onScrollViewListener!!.onSelected(it.selectedIndex, it.items!![it.selectedIndex])
+            }
         }
-    }
 
     fun setOnScrollViewListener(onScrollViewListener: OnScrollViewListener?) {
         this.onScrollViewListener = onScrollViewListener
     }
 
     fun setSelection(position: Int) {
-        selectedIndex = position + offset
-        post { smoothScrollTo(OFF_SET_INITIAL, position * itemHeight) }
+        properties.selectedIndex = position + properties.offset
+        post { smoothScrollTo(OFF_SET_INITIAL, position * properties.itemHeight) }
     }
 
     fun setItems(list: List<String>?) {
-        if (items == null) {
-            items = ArrayList()
+        properties.let {
+            it.items = ArrayList()
         }
 
-        items?.let { it ->
+        properties.items?.let {
             it.apply {
                 clear()
-                list?.let { it }?.let { list -> addAll(list) }
 
-                for (i in OFF_SET_INITIAL until offset) {
+                list?.let { list -> addAll(list) }
+
+                for (i in OFF_SET_INITIAL until properties.offset) {
                     add(OFF_SET_INITIAL, "")
                     add("")
                 }
@@ -287,8 +296,8 @@ class CustomNumberPickerScrollView(
     }
 
 
-    open class OnScrollViewListener {
-        open fun onSelected(selectedIndex: Int, item: String) {}
+    fun interface OnScrollViewListener {
+        fun onSelected(selectedIndex: Int, item: String)
     }
 
 }
