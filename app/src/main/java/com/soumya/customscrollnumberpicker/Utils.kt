@@ -9,10 +9,10 @@ import android.view.WindowInsets
 
 object Utils {
 
-    internal const val MAX_INCH_VALUE = 11
-    internal const val MAX_FEET_DEFAULT = 8
+    private const val MAX_INCH_VALUE = 11
+    private const val MAX_FEET_DEFAULT = 8
     internal const val FEET_TEXT = " feet, "
-    internal const val INCHES = " inches"
+    internal const val INCH = " inch"
     internal const val OFF_SET_INITIAL = 0
     internal const val OFF_SET_DEFAULT = 1
     internal const val SCROLL_DIRECTION_UP = 0
@@ -31,8 +31,8 @@ object Utils {
     }.measuredHeight
 
 
-    internal fun getScreenWidth(activity: Activity?): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+    internal fun getScreenWidth(activity: Activity?): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val windowMetrics = activity?.windowManager?.currentWindowMetrics
             val insets = windowMetrics?.getWindowInsets()
                 ?.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
@@ -42,6 +42,19 @@ object Utils {
             activity?.windowManager?.defaultDisplay?.getMetrics(displayMetrics)
             displayMetrics.widthPixels
         }
-    }
 
+    internal fun setNumberPickerList(): Pair<List<String>, List<String>> {
+        val feetList = arrayListOf<String>()
+        for (i in OFF_SET_DEFAULT..MAX_FEET_DEFAULT) {
+            feetList.add("$i")
+        }
+
+        val inchList = arrayListOf<String>()
+
+        for (i in 0..MAX_INCH_VALUE) {
+            inchList.add("$i")
+        }
+
+        return Pair(feetList, inchList)
+    }
 }
